@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 
 // 1 
-const companySchema = new mongoose.Schema({
+const Company_requestsModelsSchema = new mongoose.Schema({
     name : {
         type: String,
         require: [true, "require"],
@@ -31,12 +31,7 @@ const companySchema = new mongoose.Schema({
     facebook : String,
 
     instagram : String,
- 
-    advertisements : [{
-        Image : String,
-        title : String,
-        description : String,
-    }],
+
 
     ratingsAverage: {
         type: Number,
@@ -76,8 +71,6 @@ const companySchema = new mongoose.Schema({
 },{timestamps: true})
 
 
-const companymodel = mongoose.model("company", companySchema)
+const Company_requestsmodel = mongoose.model("Company_requests", Company_requestsModelsSchema)
 
-module.exports = companymodel
-
-
+module.exports = Company_requestsmodel

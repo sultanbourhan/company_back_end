@@ -1,4 +1,7 @@
 const companymodel = require("../models/companyModels");
+const Categoreymodel = require("../models/CategoreyModels");
+const Company_requestsmodel = require("../models/Company_requestsModels");
+const advertisementsmodel = require("../models/advertisementsModels");
 const ApiError = require("../ApiError");
 const asyncHandler = require("express-async-handler");
 const slugify = require("slugify");
@@ -22,7 +25,8 @@ const multerFilter = (req, file, cb) => {
 const upload = multer({ storage: multerStorage, fileFilter: multerFilter }).fields([
     { name: 'companyImage', maxCount: 1 },
     { name: 'logoImage', maxCount: 1 },
-    { name: 'Image', maxCount: 1 }
+    { name: 'Image', maxCount: 1 },
+    { name: 'Categoreyimage', maxCount: 1 }
 ]);
 
 // تستخدم .fields لذا احذف imgcompany و imgcompanyLogo
@@ -73,8 +77,29 @@ exports.resizeImage = asyncHandler(async (req, res, next) => {
     next();
 });
 
+exports.resizeCategoreyimage = asyncHandler(async (req, res, next) => {
+    if (req.files && req.files.Categoreyimage) {
+        const file = req.files.Categoreyimage[0]; // يأخذ أول ملف في المصفوفة
+        const filename = `company-Categoreyimage-${uuidv4()}-${Date.now()}.jpeg`;
+        await sharp(file.buffer)
+            .toFormat("jpeg")
+            .jpeg({ quality: 90 })
+            .toFile(`image/company/${filename}`);
+
+        req.body.Categoreyimage = filename;
+    }
+    next();
+});
+
 // ----------------------------------------------------
 exports.create_company = asyncHandler(async (req, res) => {
+
+    const company_ = await companymodel.findOne({user : req.body.user})
+    
+    if(company_){
+        return next(new ApiError(`There is a company account for the person for whom the account was created.` , 404))
+    }
+
     req.body.slug = slugify(req.body.name);
 
     const company = await companymodel.create({
@@ -88,6 +113,7 @@ exports.create_company = asyncHandler(async (req, res) => {
         linkedIn: req.body.linkedIn,
         facebook: req.body.facebook,
         instagram: req.body.instagram,
+        categorey: req.body.categorey
     });
 
     res.status(201).json({ data: company });
@@ -189,7 +215,6 @@ exports.get_company_my =asyncHandler( async (req, res, next)=>{
 })
 
 // --------------------------------------------------------
-
 exports.update_company_my =asyncHandler( async (req, res, next)=>{
 
     if(req.body.name){
@@ -276,50 +301,100 @@ exports.delete_company_my =asyncHandler( async (req, res, next)=>{
 // --------------------------------------------------------------
 exports.create_company_advertisements_my =asyncHandler( async (req, res, next)=>{
 
-    const company = await companymodel.findOneAndUpdate(
-        {user: req.user._id},
-        {
-          $addToSet : {advertisements : req.body}
-        },
-        {new: true}
-    )
-
-    if(!company){
-        return next(new ApiError(`There is no account for your company.` , 404))
-    }
-
-    res.status(200).json({data:company})
-})
-
-// ---------------------------------------------------------
-exports.delete_company_advertisements_my =asyncHandler( async (req, res, next)=>{
-
-    const company = await companymodel.findOneAndUpdate(
-        {user: req.user._id},
-        {
-          $pull : {advertisements : {_id : req.params.id}}
-        },
-        {new: true}
-    )
-
-    if(!company){
-        return next(new ApiError(`There is no account for your company.` , 404))
-    }
-
-    res.status(200).send()
-})
-
-// --------------------------------------------------------
-exports.get_company_advertisements_my =asyncHandler( async (req, res, next)=>{
-
-    const company = await companymodel.findOne({user: req.user._id}).populate({path: "user"})
+    const company = await companymodel.findOne({user: req.user._id})
 
     if(!company){
         return next(new ApiError(`You do not have a company account.` , 404))
     }
 
-    res.status(201).json({number : company.advertisements.length, data:company.advertisements})
+    const advertisements = await advertisementsmodel.create({
+        Image : req.body.Image ,
+        title : req.body.title,
+        description : req.body.description,
+        Company : company._id,
+        categorey : company.categorey
+    })
+
+    res.status(200).json({data:advertisements})
 })
+
+// ---------------------------------------------------------
+exports.delete_company_advertisements_my =asyncHandler( async (req, res, next)=>{
+
+    let advertisements = await advertisementsmodel.findById(req.params.id).populate({path : "Company"})
+
+    if(advertisements.Company.user.toString() !== req.user._id.toString()){
+        return next(new ApiError(`This ad is not for you` , 404))
+    }
+
+    advertisements = await advertisementsmodel.findByIdAndDelete(req.params.id)
+
+    
+
+    res.status(200).send()
+})
+
+// --------------------------------------------------------
+exports.get_company_advertisements_my = asyncHandler(async (req, res, next) => {
+    
+    const advertisements = await advertisementsmodel.find({Company : req.params.id});
+    
+    res.status(200).json({ nam: advertisements.length , data: advertisements });
+
+});
+
+// ------------------------------------------------------------
+exports.get_all_company_advertisements = asyncHandler(async (req, res, next) => {
+    const filter = {};
+
+    if (req.query.categorey) {
+        filter.categorey = req.query.categorey;
+    }
+
+    const advertisements = await advertisementsmodel.find(filter);
+    res.status(200).json({ nam: advertisements.length, data: advertisements });
+});
+
+
+// -----------------------------------------------------
+exports.likes_company_advertisements = asyncHandler(async (req, res, next) => {
+    let advertisement = await advertisementsmodel.findById(req.params.id);
+
+    if (!advertisement) {
+        return next(new ApiError(`No advertisement found with ID ${req.params.id}`, 404));
+    }
+
+    let userAlreadyLiked = false;
+
+    // تحقق مما إذا كان المستخدم قد أعجب بالفعل بالإعلان
+    advertisement.likes.forEach((user) => {
+        if (user.toString() === req.user._id.toString()) {
+            userAlreadyLiked = true;
+        }
+    });
+
+    if (userAlreadyLiked) {
+        advertisement = await advertisementsmodel.findByIdAndUpdate(
+            req.params.id,
+            { $pull: { likes: req.user._id } },
+            { new: true }
+        );
+    } else {
+        advertisement = await advertisementsmodel.findByIdAndUpdate(
+            req.params.id,
+            { $addToSet: { likes: req.user._id } },
+            { new: true }
+        );
+    }
+
+    await advertisement.save();
+
+    res.status(200).json({likes : advertisement.likes.length  ,  data: advertisement });
+});
+
+
+
+
 
 // --------------------------------------------------------
 exports.create_company_comments =asyncHandler( async (req, res, next)=>{
@@ -427,4 +502,157 @@ exports.create_company_Reviews = asyncHandler(async (req, res, next) => {
 
     res.status(200).json({ data: company });
 });
+
+// --------------------------------------------------
+exports.create_Categorey = asyncHandler(async (req, res, next) =>{
+    req.body.slug = slugify(req.body.name);
+
+    const Categorey = await Categoreymodel.create({
+        name: req.body.name,
+        slug: req.body.slug,
+        description: req.body.description,
+        Categoreyimage: `${process.env.BASE_URL}/company/${req.body.Categoreyimage}`,
+    });
+
+    res.status(201).json({ data: Categorey });
+})
+
+// ---------------------------------------------------------
+exports.get_Categorey = asyncHandler(async (req, res, next) =>{
+
+    const Categorey = await Categoreymodel.find()
+
+    res.status(200).json({data : Categorey})
+})
+
+// --------------------------------------------------------
+exports.delete_Categorey = asyncHandler(async (req, res, next) =>{
+
+    const Categorey = await Categoreymodel.findByIdAndDelete(req.params.id)
+
+    if(!Categorey){
+        return next(new ApiError(`There is no category for this id ${req.params.id}.`, 404))
+    }
+
+    res.status(200).send()
+})
+
+// -------------------------------------------------------
+exports.get_Categorey_company = asyncHandler(async (req, res, next) =>{
+
+    const company = await companymodel.find({categorey : req.params.id})
+
+    const categorey = await Categoreymodel.findById(req.params.id)
+
+
+    res.status(200).json({categorey : categorey , nam : company.length , data: company })
+
+})
+
+// -----------------------------------------------------
+exports.create_Company_requests = asyncHandler(async (req, res, next) =>{
+    req.body.slug = slugify(req.body.name);
+
+    const company = await companymodel.findOne({user : req.user._id})
+
+    if(company){
+        return next(new ApiError(`You have a company account and you cannot open another account.`, 404))
+    }
+
+    const Company_ = await Company_requestsmodel.findOne({user : req.user._id})
+
+    if(Company_){
+        return next(new ApiError(`You have a request for a company account and you cannot open another account.`, 404))
+    }
+
+    const Company_requests = await Company_requestsmodel.create({
+        name: req.body.name,
+        slug: req.body.slug,
+        description: req.body.description,
+        companyImage: `${process.env.BASE_URL}/company/${req.body.companyImage}`,
+        logoImage: `${process.env.BASE_URL}/company/${req.body.logoImage}`,
+        user: req.user._id,
+        phone: req.body.phone,
+        linkedIn: req.body.linkedIn,
+        facebook: req.body.facebook,
+        instagram: req.body.instagram,
+        categorey: req.body.categorey
+    });
+
+    res.status(201).json({ data: Company_requests });
+})
+
+// -------------------------------------------------------------
+exports.delete_Company_requests = asyncHandler(async (req, res, next) =>{
+
+    const Company_requests = await Company_requestsmodel.findByIdAndDelete(req.params.id)
+
+    res.status(201).send();
+
+})
+
+// ---------------------------------------------------------------
+exports.get_Company_requests_my = asyncHandler(async (req, res, next) =>{
+
+    const Company_requests = await Company_requestsmodel.find({user : req.user._id})
+
+    res.status(201).json({nam : Company_requests.length , data : Company_requests});
+
+})
+
+// -----------------------------------------------------
+exports.get_Company_requests = asyncHandler(async (req, res, next) =>{
+
+    const Company_requests = await Company_requestsmodel.find()
+
+    res.status(201).json({nam : Company_requests.length , data: Company_requests });
+    
+})
+
+// ----------------------------------------------------------
+exports.get_Company_requests_id = asyncHandler(async (req, res, next) =>{
+
+    const Company_requests = await Company_requestsmodel.findById(req.params.id)
+
+    if(!Company_requests){
+        return next(new ApiError(`There is no request for a company account for this ID : ${req.params.id}.`, 404))
+    }
+
+    res.status(201).json({ data: Company_requests });
+    
+})
+
+// ------------------------------------------------------------
+exports.Accept_Company_requests_admin = asyncHandler(async (req, res, next) =>{
+    const Company_requests = await Company_requestsmodel.findById(req.params.id)
+
+    Company_requests.slug = slugify(Company_requests.name);
+
+    const company = await companymodel.create({
+        name: Company_requests.name,
+        slug: Company_requests.slug,
+        description: Company_requests.description,
+        companyImage: Company_requests.companyImage,
+        logoImage: Company_requests.logoImage,
+        user: Company_requests.user,
+        phone: Company_requests.phone,
+        linkedIn: Company_requests.linkedIn,
+        facebook: Company_requests.facebook,
+        instagram: Company_requests.instagram,
+        categorey: Company_requests.categorey
+    });
+
+    const delete_Company_requests = await Company_requestsmodel.findByIdAndDelete(req.params.id)
+
+    res.status(201).json({ data: company });
+
+
+})
+
+// ---------------------------------------------
+exports.delete_Company_requests_admin = asyncHandler(async (req, res, next) =>{
+    const Company_requests = await Company_requestsmodel.findByIdAndDelete(req.params.id)
+
+    res.status(200).send()
+})
 

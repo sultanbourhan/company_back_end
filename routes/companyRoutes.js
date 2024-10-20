@@ -1,8 +1,8 @@
 const express = require("express");
 
-const { uploadImages, resizeImg, resizeImglogo, resizeImage, create_company, get_company, get_company_my, update_company_my, update_company_id, get_company_id, delete_company_id, delete_company_my, create_company_advertisements_my, delete_company_advertisements_my, get_company_advertisements_my, create_company_comments, delete_company_comments_my, delete_company_comments_admin, create_company_Reviews} = require("../services/companyServicrs")
+const { uploadImages, resizeImg, resizeImglogo, resizeImage,resizeCategoreyimage, create_company, get_company, get_company_my, update_company_my, update_company_id, get_company_id, delete_company_id, delete_company_my, create_company_advertisements_my, delete_company_advertisements_my, get_company_advertisements_my, create_company_comments, delete_company_comments_my, delete_company_comments_admin, create_company_Reviews, create_Categorey, get_Categorey, delete_Categorey, get_Categorey_company, create_Company_requests, get_Company_requests, get_Company_requests_id, delete_Company_requests, get_Company_requests_my, Accept_Company_requests_admin, delete_Company_requests_admin, get_all_company_advertisements, likes_company_advertisements} = require("../services/companyServicrs")
 
-const {create_company_V, update_company_my_V, update_company_id_V, get_company_id_V, delete_company_id_V, create_company_advertisements_my_V, delete_company_advertisements_my_V, create_company_comments_V} = require("../validationResulterror/v_company")
+const {create_company_V, update_company_my_V, update_company_id_V, get_company_id_V, delete_company_id_V, create_company_advertisements_my_V, delete_company_advertisements_my_V, create_company_comments_V, create_Categorey_V, delete_Categorey_V, get_Categorey_company_V, create_Company_requests_V, get_Company_requests_id_V, delete_Company_requests_V, Accept_Company_requests_admin_V, delete_Company_requests_admin_V} = require("../validationResulterror/v_company")
 
 const {check_login, check_user_role} = require("../services/authServicrs")
 
@@ -37,8 +37,17 @@ companyroutes.route("/create_company_advertisements_my")
 companyroutes.route("/delete_company_advertisements_my/:id")
 .delete(check_login, delete_company_advertisements_my_V, delete_company_advertisements_my)
 
-companyroutes.route("/get_company_advertisements_my")
+companyroutes.route("/get_company_advertisements_my/:id")
 .get(check_login, get_company_advertisements_my)
+
+companyroutes.route("/get_all_company_advertisements")
+.get(get_all_company_advertisements)
+
+companyroutes.route("/likes_company_advertisements/:id")
+.post(check_login, likes_company_advertisements)
+
+
+
 
 companyroutes.route("/create_company_comments/:id")
 .post(check_login, create_company_comments_V, create_company_comments)
@@ -51,6 +60,39 @@ companyroutes.route("/delete_company_comments_admin/:companyId/:commentId")
 
 companyroutes.route("/create_company_Reviews/:id")
 .post(check_login, create_company_Reviews)
+
+companyroutes.route("/create_Categorey")
+.post(check_login, check_user_role("admin"), uploadImages, resizeCategoreyimage, create_Categorey_V, create_Categorey)
+
+companyroutes.route("/get_Categorey")
+.get(get_Categorey)
+
+companyroutes.route("/delete_Categorey/:id")
+.delete(check_login, check_user_role("admin"), delete_Categorey_V, delete_Categorey )
+
+companyroutes.route("/get_Categorey_company/:id")
+.get( get_Categorey_company_V, get_Categorey_company )
+
+companyroutes.route("/create_Company_requests")
+.post(check_login, uploadImages, resizeImg, resizeImglogo, create_Company_requests_V, create_Company_requests )
+
+companyroutes.route("/get_Company_requests")
+.get(check_login, check_user_role("admin"), get_Company_requests )
+
+companyroutes.route("/get_Company_requests_id/:id")
+.get(check_login, check_user_role("admin"), get_Company_requests_id_V, get_Company_requests_id )
+
+companyroutes.route("/delete_Company_requests/:id")
+.delete(check_login, delete_Company_requests_V, delete_Company_requests )
+
+companyroutes.route("/get_Company_requests_my")
+.get(check_login, get_Company_requests_my )
+
+companyroutes.route("/Accept_Company_requests_admin/:id")
+.post(check_login, check_user_role("admin"), Accept_Company_requests_admin_V, Accept_Company_requests_admin )
+
+companyroutes.route("/delete_Company_requests_admin/:id")
+.delete(check_login, check_user_role("admin"), delete_Company_requests_admin_V, delete_Company_requests_admin )
 
 
 
