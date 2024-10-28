@@ -72,7 +72,11 @@ exports.create_company_V = [
             return true;
         }),
 
-        check("categorey")
+    check("email")
+    .optional()
+    .isEmail().withMessage("Invalid email"),
+
+    check("categorey")
         .notEmpty().withMessage("Enter a category for your company")
         .isMongoId().withMessage("Error in id")
         .custom((val)=>
@@ -84,7 +88,7 @@ exports.create_company_V = [
         )
 
         ,
-        check("user")
+    check("user")
         .notEmpty().withMessage("Enter your company name")
         .isMongoId().withMessage("Error in id")
         .custom((val)=>
@@ -130,6 +134,10 @@ exports.update_company_my_V = [
             }
             return true;
         }),
+
+    check("email")
+        .optional()
+        .isEmail().withMessage("Invalid email"),
 
     validationMiddiel
 ]
@@ -287,8 +295,17 @@ exports.create_Company_requests_V = [
     .notEmpty().withMessage("Enter your company name"),
 
     check("description")
-    .notEmpty().withMessage("Enter a description of your company.")
-    .isLength({ min: 15 }).withMessage("This description is short."),
+        .notEmpty().withMessage("Enter a description of your company.")
+        .isLength({ min: 15 }).withMessage("This description is short.")
+        .custom((val, { req }) => {
+            if (req.type === 'basic plan' && val.length > 150) {
+                throw new Error('The description must be less than 50 characters for a Basic plan.');
+            }
+            if (req.type === 'advanced plan' && val.length > 300) {
+                throw new Error('The description must be less than 30 characters for a Basic plan.');
+            }
+            return true;
+        }),
 
     check("companyImage")
     .notEmpty().withMessage("Enter a picture of your company."),
@@ -328,8 +345,77 @@ exports.create_Company_requests_V = [
         return true;
     }),
 
+    check("email")
+    .optional()
+    .isEmail().withMessage("Invalid email"),
+
     check("categorey")
     .notEmpty().withMessage("Enter a category for your company")
+    .isMongoId().withMessage("Error in id")
+    .custom((val)=>
+        Categoreymodel.findById(val).then((Categorey) =>{
+            if (!Categorey) {
+                throw new Error(`There is no Categorey for this ID: ${val}`);
+            }
+        })
+    )
+    ,
+    validationMiddiel
+]
+
+exports.update_Company_requests_V = [
+
+    check("description")
+        .optional()
+        .isLength({ min: 15 }).withMessage("This description is short.")
+        .custom((val, { req }) => {
+            if (req.type === 'basic plan' && val.length > 150) {
+                throw new Error('The description must be less than 50 characters for a Basic plan.');
+            }
+            if (req.type === 'advanced plan' && val.length > 300) {
+                throw new Error('The description must be less than 30 characters for a Basic plan.');
+            }
+            return true;
+        }),
+
+    check("phone")
+    .optional()
+    .isMobilePhone(["ar-AE", "ar-BH", "ar-DZ", "ar-SY", "ar-MA", "ar-SA", "ar-QA", "ar-KW", "ar-OM", "ar-JO", "ar-LB", "ar-DJ", "ar-MR", "ar-PS", "ar-TN", "ar-YE", "ar-IQ", "ar-SD", "ar-LY"])
+    .withMessage("The phone number is invalid. It must be a valid Arabic phone number."),
+
+    check("linkedIn")
+    .optional()
+    .custom(value => {
+        if (value && !isValidLinkedInURL(value)) {
+            throw new Error("The link must be a valid LinkedIn URL.");
+        }
+        return true;
+    }),
+
+    check("facebook")
+    .optional()
+    .custom(value => {
+        if (value && !isValidFacebookURL(value)) {
+            throw new Error("The link must be a valid Facebook URL.");
+        }
+        return true;
+    }),
+
+    check("instagram")
+    .optional()
+    .custom(value => {
+        if (value && !isValidInstagramURL(value)) {
+            throw new Error("The link must be a valid Instagram URL.");
+        }
+        return true;
+    }),
+
+    check("email")
+    .optional()
+    .isEmail().withMessage("Invalid email"),
+
+    check("categorey")
+    .optional()
     .isMongoId().withMessage("Error in id")
     .custom((val)=>
         Categoreymodel.findById(val).then((Categorey) =>{

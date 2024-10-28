@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 // 1 
 const advertisementsSchema = new mongoose.Schema({
-    Image : String,
+    Image : [String],
     title : String,
     description : String,
     likes :[{

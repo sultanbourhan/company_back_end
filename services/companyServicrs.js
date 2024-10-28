@@ -9,6 +9,7 @@ const multer = require("multer");
 const sharp = require('sharp');
 const { v4: uuidv4 } = require("uuid");
 const { text } = require("body-parser");
+const usermodel = require("../models/userModels");
 
 // --------------------------------------------
 
@@ -25,7 +26,7 @@ const multerFilter = (req, file, cb) => {
 const upload = multer({ storage: multerStorage, fileFilter: multerFilter }).fields([
     { name: 'companyImage', maxCount: 1 },
     { name: 'logoImage', maxCount: 1 },
-    { name: 'Image', maxCount: 1 },
+    { name: 'Image', maxCount: 10 }, // السماح برفع حتى 10 صور
     { name: 'Categoreyimage', maxCount: 1 }
 ]);
 
@@ -65,17 +66,21 @@ exports.resizeImglogo = asyncHandler(async (req, res, next) => {
 
 exports.resizeImage = asyncHandler(async (req, res, next) => {
     if (req.files && req.files.Image) {
-        const file = req.files.Image[0]; // يأخذ أول ملف في المصفوفة
-        const filename = `company-Image-${uuidv4()}-${Date.now()}.jpeg`;
-        await sharp(file.buffer)
-            .toFormat("jpeg")
-            .jpeg({ quality: 90 })
-            .toFile(`image/company/${filename}`);
-
-        req.body.Image = `localhost:8000/company/${filename}`;
+        req.body.Image = [];
+        for (let i = 0; i < req.files.Image.length; i++) {
+            const file = req.files.Image[i];
+            const filename = `company-Image-${uuidv4()}-${Date.now()}.jpeg`;
+            await sharp(file.buffer)
+                .toFormat("jpeg")
+                .jpeg({ quality: 90 })
+                .toFile(`image/company/${filename}`);
+            req.body.Image.push(`/company/${filename}`);
+        }
     }
     next();
 });
+
+
 
 exports.resizeCategoreyimage = asyncHandler(async (req, res, next) => {
     if (req.files && req.files.Categoreyimage) {
@@ -113,6 +118,7 @@ exports.create_company = asyncHandler(async (req, res) => {
         linkedIn: req.body.linkedIn,
         facebook: req.body.facebook,
         instagram: req.body.instagram,
+        email: req.body.email,
         categorey: req.body.categorey
     });
 
@@ -120,75 +126,70 @@ exports.create_company = asyncHandler(async (req, res) => {
 });
 
 // ------------------------------------------------------------
-exports.get_company =asyncHandler( async (req, res, next)=>{
+exports.get_company = asyncHandler(async (req, res, next) => {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const skip = (page - 1) * limit;
+    const inIndex = page * limit;
 
-    // page
-    const page = req.query.page *1 || 1 
-    const limit = req.query.limit *1 || 10
-    const skip = (page - 1) * limit
-    const inIndex = page * limit
+    const reqQuery = { ...req.query };
+    const del_for_reqQuery = ["page", "limit", "sort", "fields", "keyword"];
+    del_for_reqQuery.forEach((val) => delete reqQuery[val]);
 
-    // filter
-    const reqQuery = {...req.query}
-    const del_for_reqQuery = ["page", "limit", "sort", "fields"]
-    del_for_reqQuery.forEach((val) => delete reqQuery[val])
-    
-    // { price: { $gte: '400' }, ratingsAverage: { $gte: '1' } }
-    // { price: { gte: '400' }, ratingsAverage: { gte: '1' } }
-    let reqQueryArrae = JSON.stringify(reqQuery)
-    reqQueryArrae = reqQueryArrae.replace(/\b(gte|lte|lt|gt)\b/g, (match)=> `$${match}`)
-    let reqQueryJson = JSON.parse(reqQueryArrae)
+    let reqQueryStr = JSON.stringify(reqQuery);
+    reqQueryStr = reqQueryStr.replace(/\b(gte|lte|lt|gt)\b/g, (match) => `$${match}`);
+    let reqQueryJson = JSON.parse(reqQueryStr);
 
-    // number page
-    const Allcompany = await companymodel.countDocuments()
+    const Allcompany = await companymodel.countDocuments();
 
-    const pagination = {}
-    pagination.page = page
-    pagination.limit = limit
-    pagination.Allcompany = Allcompany
-    pagination.numberOfPage = Math.ceil(Allcompany / limit)
-    if(inIndex < Allcompany){
-        pagination.nextPage = page + 1
+    const pagination = {};
+    pagination.page = page;
+    pagination.limit = limit;
+    pagination.Allcompany = Allcompany;
+    pagination.numberOfPage = Math.ceil(Allcompany / limit);
+    if (inIndex < Allcompany) {
+        pagination.nextPage = page + 1;
     }
-    if(skip > 0){
-        pagination.prevPage = page - 1
+    if (skip > 0) {
+        pagination.prevPage = page - 1;
     }
 
+    let match = reqQueryJson;
+    let search = {};
 
-
-    let companyDB = companymodel.find(reqQueryJson).limit(limit).skip(skip)
-
-    // sort
-    if(req.query.sort){
-        const sortBy = req.query.sort.split(",").join(" ")
-        companyDB = companyDB.sort(sortBy)
-    }
-
-    // select fields
-    if(req.query.fields){
-        const fieldsBy = req.query.fields.split(",").join(" ")
-        companyDB = companyDB.select(fieldsBy)
-    }else(
-        companyDB = companyDB.select("-__v")
-    )
-
-    // search
     if (req.query.keyword) {
-        const search = {}
         search.$or = [
             { name: { $regex: req.query.keyword, $options: "i" } },
             { description: { $regex: req.query.keyword, $options: "i" } },
-        ]
-
-        companyDB = companyDB.find(search);
-
+        ];
     }
 
-    const company = await companyDB
+    let aggregationPipeline = [
+        { $match: match },
+        { $match: search },
+        { $addFields: { premium: { $cond: { if: { $eq: ["$type", "premium plan"] }, then: 1, else: 0 } } } },
+        { $sort: { premium: -1 } },
+        { $skip: skip },
+        { $limit: limit }
+    ];
 
-    res.status(200).json({results : company.length, pagination, data : company})
+    if (req.query.sort) {
+        const sortBy = req.query.sort.split(",").join(" ");
+        aggregationPipeline.push({ $sort: sortBy });
+    }
 
-})
+    if (req.query.fields) {
+        const fieldsBy = req.query.fields.split(",").join(" ");
+        aggregationPipeline.push({ $project: { fieldsBy: 1 } });
+    } else {
+        aggregationPipeline.push({ $project: { "__v": 0 } });
+    }
+
+    const company = await companymodel.aggregate(aggregationPipeline).exec();
+
+    res.status(200).json({ results: company.length, pagination, data: company });
+});
+
 
 // -------------------------------------------------------------
 exports.get_company_id =asyncHandler( async (req, res, next)=>{
@@ -307,6 +308,36 @@ exports.create_company_advertisements_my =asyncHandler( async (req, res, next)=>
         return next(new ApiError(`You do not have a company account.` , 404))
     }
 
+    if (company.type === "basic plan") {
+        const advertisement = await advertisementsmodel.find({
+            Company: company._id,
+            createdAt: { $gte: new Date(Date.now() - 178 * 60 * 60 * 1000) }  // إعلانات تم إنشاؤها خلال 178 ساعة الماضية
+        });
+
+        if (advertisement.length > 0) {
+            return next(new ApiError(`You cannot add another advertisement within 48 hours of the last one.`, 403));
+        }
+    } else if (company.type === "advanced plan") {
+        const advertisements = await advertisementsmodel.find({
+            Company: company._id,
+            createdAt: { $gte: new Date(Date.now() - 72 * 60 * 60 * 1000) } // إعلانات تم إنشاؤها خلال 72 ساعة الماضية
+        });
+
+        if (advertisements.length > 0) {
+            return next(new ApiError(`You can only add one advertisement per day.`, 403));
+        }
+    } else if (company.type === "premium plan") {
+        const advertisements = await advertisementsmodel.find({
+            Company: company._id,
+            createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } // إعلانات تم إنشاؤها خلال 24 ساعة الماضية
+        });
+
+        if (advertisements.length > 0) {
+            return next(new ApiError(`You can only add one advertisement per day.`, 403));
+        }
+    }
+    
+
     const advertisements = await advertisementsmodel.create({
         Image : req.body.Image ,
         title : req.body.title,
@@ -379,12 +410,26 @@ exports.likes_company_advertisements = asyncHandler(async (req, res, next) => {
             { $pull: { likes: req.user._id } },
             { new: true }
         );
+
+        const user = await usermodel.findById(req.user._id)
+
+        user.point -= 2
+
+        await user.save()
+
     } else {
         advertisement = await advertisementsmodel.findByIdAndUpdate(
             req.params.id,
             { $addToSet: { likes: req.user._id } },
             { new: true }
         );
+
+        const user = await usermodel.findById(req.user._id)
+
+        user.point += 2
+
+        await user.save()
+        
     }
 
     await advertisement.save();
@@ -392,30 +437,37 @@ exports.likes_company_advertisements = asyncHandler(async (req, res, next) => {
     res.status(200).json({likes : advertisement.likes.length  ,  data: advertisement });
 });
 
-
-
-
-
 // --------------------------------------------------------
-exports.create_company_comments =asyncHandler( async (req, res, next)=>{
+exports.create_company_comments = asyncHandler(async (req, res, next) => {
+    req.body.user_comment = req.user._id;
 
-    req.body.user_comment = req.user._id
+    // التحقق مما إذا كان المستخدم قد وضع تعليقًا سابقًا
+    const company = await companymodel.findOne({
+        _id: req.params.id,
+        "comments.user_comment": req.user._id
+    });
 
-    const company = await companymodel.findOneAndUpdate(
-        {_id: req.params.id},
-        {
-            $addToSet : {comments : req.body}
-        },
-        {new: true}
-    )
-
-    if(!company){
-        return next(new ApiError(`There is no company account for this ID ${req.params.id} .` , 404))
+    if (company) {
+        return next(new ApiError('You have already commented on this company.', 400));
     }
 
-    res.status(200).json({data:company})
+    // إذا لم يكن هناك تعليق سابق، إضافة التعليق الجديد
+    const updatedCompany = await companymodel.findOneAndUpdate(
+        { _id: req.params.id },
+        { $addToSet: { comments: req.body } },
+        { new: true }
+    );
 
-})
+    if (!updatedCompany) {
+        return next(new ApiError(`There is no company account for this ID ${req.params.id}.`, 404));
+    }
+
+    const user = await usermodel.findById(req.user._id);
+    user.point += 6;
+    await user.save();
+
+    res.status(200).json({ data: updatedCompany });
+});
 
 // --------------------------------------------------
 exports.delete_company_comments_my = asyncHandler(async (req, res, next) => {
@@ -443,6 +495,10 @@ exports.delete_company_comments_my = asyncHandler(async (req, res, next) => {
 
     // إعادة استرجاع الشركة المحدثة
     const updatedCompany = await companymodel.findById(req.params.companyId);
+
+    const user = await usermodel.findById(req.user._id);
+    user.point -= 6;
+    await user.save();
 
     res.status(200).json({ data: updatedCompany });
 });
@@ -500,6 +556,10 @@ exports.create_company_Reviews = asyncHandler(async (req, res, next) => {
 
     await company.save();
 
+    const user = await usermodel.findById(req.user._id);
+    user.point += 8;
+    await user.save();
+
     res.status(200).json({ data: company });
 });
 
@@ -511,8 +571,31 @@ exports.create_Categorey = asyncHandler(async (req, res, next) =>{
         name: req.body.name,
         slug: req.body.slug,
         description: req.body.description,
-        Categoreyimage: `${process.env.BASE_URL}/company/${req.body.Categoreyimage}`,
+        Categoreyimage: `/company/${req.body.Categoreyimage}`,
     });
+
+    res.status(201).json({ data: Categorey });
+})
+
+// --------------------------------------------------
+exports.update_Categorey = asyncHandler(async (req, res, next) =>{
+    if(req.body.name){
+        req.body.slug = slugify(req.body.name);
+    }
+
+    const Categorey = await Categoreymodel.findByIdAndUpdate(
+        req.params.id ,
+        {
+        name: req.body.name,
+        slug: req.body.slug,
+        description: req.body.description,
+        Categoreyimage: `/company/${req.body.Categoreyimage}`,
+    },
+    {new: true});
+
+    if(!Categorey){
+        return next(new ApiError(`There is no category for this ID ${req.params.id}.`, 404));
+    }
 
     res.status(201).json({ data: Categorey });
 })
@@ -551,6 +634,7 @@ exports.get_Categorey_company = asyncHandler(async (req, res, next) =>{
 
 // -----------------------------------------------------
 exports.create_Company_requests = asyncHandler(async (req, res, next) =>{
+
     req.body.slug = slugify(req.body.name);
 
     const company = await companymodel.findOne({user : req.user._id})
@@ -569,8 +653,8 @@ exports.create_Company_requests = asyncHandler(async (req, res, next) =>{
         name: req.body.name,
         slug: req.body.slug,
         description: req.body.description,
-        companyImage: `${process.env.BASE_URL}/company/${req.body.companyImage}`,
-        logoImage: `${process.env.BASE_URL}/company/${req.body.logoImage}`,
+        companyImage: `/company/${req.body.companyImage}`,
+        logoImage: `/company/${req.body.logoImage}`,
         user: req.user._id,
         phone: req.body.phone,
         linkedIn: req.body.linkedIn,
@@ -578,6 +662,32 @@ exports.create_Company_requests = asyncHandler(async (req, res, next) =>{
         instagram: req.body.instagram,
         categorey: req.body.categorey
     });
+
+    res.status(201).json({ data: Company_requests });
+})
+
+// ---------------------------------------------
+exports.update_Company_requests = asyncHandler(async (req, res, next) =>{
+
+    if(req.body.name){
+        req.body.slug = slugify(req.body.name)
+    }
+
+    const Company_requests = await Company_requestsmodel.findOneAndUpdate(
+        {user: req.user._id},
+        {
+        name: req.body.name,
+        slug: req.body.slug,
+        description: req.body.description,
+        companyImage: `/company/${req.body.companyImage}`,
+        logoImage: `/company/${req.body.logoImage}`,
+        phone: req.body.phone,
+        linkedIn: req.body.linkedIn,
+        facebook: req.body.facebook,
+        instagram: req.body.instagram,
+        categorey: req.body.categorey
+        },
+        {new: true});
 
     res.status(201).json({ data: Company_requests });
 })

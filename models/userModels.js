@@ -48,6 +48,11 @@ const userSchema = new mongoose.Schema({
         default : true,
     },
 
+    points : {
+        type : Number,
+        default : 20
+    },
+
 },{timestamps: true})
 
 

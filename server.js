@@ -35,8 +35,8 @@ app.use(session({
 }));
 
 // تكوين csurf
-const csrfProtection = csurf();
-app.use(csrfProtection);
+// const csrfProtection = csurf();
+// app.use(csrfProtection);
 
 app.use(express.json({ limit: "20kb" }));
 app.use(express.static(path.join(__dirname, "image")));
@@ -49,10 +49,10 @@ app.use(mongoSanitize());
 // make sure this comes before any routes
 app.use(xss())
 
-app.use((req, res, next) => {
-    res.locals.csrfToken = req.csrfToken(); // يمكنك استخدام ذلك في قوالب HTML
-    next();
-});
+// app.use((req, res, next) => {
+//     res.locals.csrfToken = req.csrfToken(); // يمكنك استخدام ذلك في قوالب HTML
+//     next();
+// });
 
 app.use(hpp());
 

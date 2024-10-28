@@ -31,6 +31,8 @@ const companySchema = new mongoose.Schema({
     facebook : String,
 
     instagram : String,
+
+    email : String,
  
     advertisements : [{
         Image : String,
@@ -69,6 +71,17 @@ const companySchema = new mongoose.Schema({
     categorey : {
         type : mongoose.Schema.ObjectId,
         ref : "categorey"
+    },
+
+    address : {
+        country : String,
+        city : String,
+        street : String
+    },
+
+    type : {
+        type : String,
+        enum : ["basic plan", "advanced plan" , "premium plan"],
     }
 
 

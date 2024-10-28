@@ -77,7 +77,7 @@ exports.create_user = asyncHandler( async (req,res)=>{
         email : req.body.email,
         password : await bcrypt.hash(req.body.password, 12),
         phone : req.body.phone,
-        profilImage :`${process.env.BASE_URL}/user/${req.body.profilImage}`,
+        profilImage :`/user/${req.body.profilImage}`,
         role : req.body.role
     })
 

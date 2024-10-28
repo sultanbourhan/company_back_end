@@ -53,7 +53,7 @@ exports.login = asyncHandler(  async (req,res, next)=>{
 
     user.active = true
 
-    user.save()
+    await user.save()
 
     res.status(201).json({data : user , token})
 })
