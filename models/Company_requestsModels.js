@@ -32,6 +32,13 @@ const Company_requestsModelsSchema = new mongoose.Schema({
 
     instagram : String,
 
+    email : String,
+
+    advertisements : [{
+        Image : String,
+        title : String,
+        description : String,
+    }],
 
     ratingsAverage: {
         type: Number,
@@ -64,8 +71,18 @@ const Company_requestsModelsSchema = new mongoose.Schema({
     categorey : {
         type : mongoose.Schema.ObjectId,
         ref : "categorey"
-    }
+    },
 
+    type : {
+        type : String,
+        enum : ["basic plan", "advanced plan" , "premium plan"],
+    },
+
+    Country: String,
+    city : String,
+    street: String,
+
+    subscription: { type: String, enum: ['Yearly', 'Quarterly', 'Monthly'], required: true },
 
 
 },{timestamps: true})

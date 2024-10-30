@@ -56,6 +56,9 @@ app.use(xss())
 
 app.use(hpp());
 
+require('./subscriptionReminder');
+
+
 app.use("/api/v2/user", userroutes);
 app.use("/api/v2/auth", authroutes);
 app.use("/api/v2/company", companyroutes);

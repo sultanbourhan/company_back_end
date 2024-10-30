@@ -201,7 +201,7 @@ exports.forgotpassord = asyncHandler( async (req,res,next)=>{
     await sendemail({
         email : user.email, 
         subject : "your password reset code (vaild for 10 min)",
-        massage : ` csc ${resetCode} `
+        message : ` csc ${resetCode} `
     })
 
 

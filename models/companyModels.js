@@ -73,17 +73,20 @@ const companySchema = new mongoose.Schema({
         ref : "categorey"
     },
 
-    address : {
-        country : String,
-        city : String,
-        street : String
-    },
-
     type : {
         type : String,
         enum : ["basic plan", "advanced plan" , "premium plan"],
-    }
+    },
 
+    Country: String,
+    city : String,
+    street: String,
+
+    subscription: {
+        type: { type: String, enum: ['Yearly', 'Quarterly', 'Monthly'], required: true },
+        startDate: { type: Date, default: Date.now },
+        endDate: { type: Date, required: true }
+    },
 
 
 },{timestamps: true})

@@ -97,51 +97,90 @@ exports.resizeCategoreyimage = asyncHandler(async (req, res, next) => {
 });
 
 // ----------------------------------------------------
-exports.create_company = asyncHandler(async (req, res) => {
 
-    const company_ = await companymodel.findOne({user : req.body.user})
-    
-    if(company_){
-        return next(new ApiError(`There is a company account for the person for whom the account was created.` , 404))
+
+
+// -------------
+exports.create_company = asyncHandler(async (req, res, next) => {
+    const company_ = await companymodel.findOne({ user: req.body.user });
+    if (company_) {
+        return next(new ApiError(`There is a company account for the person for whom the account was created.`, 404));
     }
 
+    const calculateEndDate = (type) => {
+        const startDate = new Date();
+        let endDate;
+        switch(type) {
+            case 'Yearly':
+                endDate = new Date(startDate.setFullYear(startDate.getFullYear() + 1));
+                break;
+            case 'Quarterly':
+                endDate = new Date(startDate.setMonth(startDate.getMonth() + 3));
+                break;
+            case 'Monthly':
+                endDate = new Date(startDate.setMonth(startDate.getMonth() + 1));
+                break;
+            default:
+                throw new Error('Invalid subscription type');
+        }
+        return endDate;
+    };
+
     req.body.slug = slugify(req.body.name);
+
+    const endDate = calculateEndDate(req.body.subscriptionType); // تأكد من تمرير نوع الاشتراك هنا
 
     const company = await companymodel.create({
         name: req.body.name,
         slug: req.body.slug,
         description: req.body.description,
-        companyImage: `${process.env.BASE_URL}/company/${req.body.companyImage}`,
-        logoImage: `${process.env.BASE_URL}/company/${req.body.logoImage}`,
+        companyImage: `/company/${req.body.companyImage}`,
+        logoImage: `/company/${req.body.logoImage}`,
         user: req.body.user,
         phone: req.body.phone,
         linkedIn: req.body.linkedIn,
         facebook: req.body.facebook,
         instagram: req.body.instagram,
         email: req.body.email,
-        categorey: req.body.categorey
+        categorey: req.body.categorey,
+        type: req.body.type,
+        Country: req.body.Country,
+        city: req.body.city,
+        street: req.body.street,
+        subscription: {
+            type: req.body.subscriptionType,
+            startDate: Date.now(),
+            endDate: endDate // تحديد تاريخ الانتهاء
+        }
     });
 
     res.status(201).json({ data: company });
 });
 
+
 // ------------------------------------------------------------
+// دالة للتعامل مع الطلبات الخاصة بجلب الشركات
 exports.get_company = asyncHandler(async (req, res, next) => {
+    // تحديد الصفحة والحد من النتائج لكل صفحة
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
     const skip = (page - 1) * limit;
     const inIndex = page * limit;
 
+    // تحضير الاستعلام من الطلب وحذف الحقول غير الضرورية
     const reqQuery = { ...req.query };
     const del_for_reqQuery = ["page", "limit", "sort", "fields", "keyword"];
     del_for_reqQuery.forEach((val) => delete reqQuery[val]);
 
+    // تحويل الاستعلام إلى سلسلة نصية لتعديل المشغلين
     let reqQueryStr = JSON.stringify(reqQuery);
     reqQueryStr = reqQueryStr.replace(/\b(gte|lte|lt|gt)\b/g, (match) => `$${match}`);
     let reqQueryJson = JSON.parse(reqQueryStr);
 
+    // حساب عدد الشركات
     const Allcompany = await companymodel.countDocuments();
-
+    
+    // إعداد بيانات التصفح
     const pagination = {};
     pagination.page = page;
     pagination.limit = limit;
@@ -154,9 +193,11 @@ exports.get_company = asyncHandler(async (req, res, next) => {
         pagination.prevPage = page - 1;
     }
 
-    let match = reqQueryJson;
-    let search = {};
+    // إعداد الشروط للتحقق من تاريخ انتهاء الاشتراك
+    let match = { ...reqQueryJson, "subscription.endDate": { $gt: new Date() } };
 
+    // إعداد البحث بالكلمات المفتاحية إذا كانت موجودة
+    let search = {};
     if (req.query.keyword) {
         search.$or = [
             { name: { $regex: req.query.keyword, $options: "i" } },
@@ -164,6 +205,7 @@ exports.get_company = asyncHandler(async (req, res, next) => {
         ];
     }
 
+    // إعداد خط الأنابيب للتجميع في MongoDB
     let aggregationPipeline = [
         { $match: match },
         { $match: search },
@@ -173,11 +215,13 @@ exports.get_company = asyncHandler(async (req, res, next) => {
         { $limit: limit }
     ];
 
+    // إضافة الفرز إذا كان موجودًا في الطلب
     if (req.query.sort) {
         const sortBy = req.query.sort.split(",").join(" ");
         aggregationPipeline.push({ $sort: sortBy });
     }
 
+    // إضافة الحقول المطلوبة أو استبعاد الحقول غير المطلوبة
     if (req.query.fields) {
         const fieldsBy = req.query.fields.split(",").join(" ");
         aggregationPipeline.push({ $project: { fieldsBy: 1 } });
@@ -185,10 +229,13 @@ exports.get_company = asyncHandler(async (req, res, next) => {
         aggregationPipeline.push({ $project: { "__v": 0 } });
     }
 
+    // تنفيذ التجميع وجلب الشركات
     const company = await companymodel.aggregate(aggregationPipeline).exec();
-
+    
+    // إرسال الاستجابة
     res.status(200).json({ results: company.length, pagination, data: company });
 });
+
 
 
 // -------------------------------------------------------------
@@ -274,18 +321,18 @@ exports.update_company_id =asyncHandler( async (req, res, next)=>{
     res.status(200).json({data:company})
 })
 
-// ----------------------------------------------------------
-exports.delete_company_id =asyncHandler( async (req, res, next)=>{
-
-    const company = await companymodel.findByIdAndDelete(req.params.id)
-
-    if(!company){
-        return next(new ApiError(`There is no company account for this ${req.params.id}.` , 404))
+// ---------------------------------------------------------
+exports.delete_company_id = asyncHandler(async (req, res, next) => {
+    const company = await companymodel.findByIdAndDelete(req.params.id);
+    
+    if (!company) {
+        return next(new ApiError(`There is no company account for this ID: ${req.params.id}.`, 404));
     }
 
-    res.status(200).send()
+    await advertisementsmodel.deleteMany({ Company: req.params.id });
 
-})
+    res.status(200).json({ message: "Company and related advertisements deleted successfully" });
+});
 
 // ----------------------------------------------------------
 exports.delete_company_my =asyncHandler( async (req, res, next)=>{
@@ -296,7 +343,10 @@ exports.delete_company_my =asyncHandler( async (req, res, next)=>{
         return next(new ApiError(`There is no account for your company.` , 404))
     }
 
-    res.status(200).send()
+    await advertisementsmodel.deleteMany({ Company: company._id });
+
+    res.status(200).json({ message: "Company and related advertisements deleted successfully" });
+
 })
 
 // --------------------------------------------------------------
@@ -655,12 +705,18 @@ exports.create_Company_requests = asyncHandler(async (req, res, next) =>{
         description: req.body.description,
         companyImage: `/company/${req.body.companyImage}`,
         logoImage: `/company/${req.body.logoImage}`,
-        user: req.user._id,
+        user: req.body.user,
         phone: req.body.phone,
         linkedIn: req.body.linkedIn,
         facebook: req.body.facebook,
         instagram: req.body.instagram,
-        categorey: req.body.categorey
+        email: req.body.email,
+        categorey: req.body.categorey,
+        type: req.body.type,
+        Country : req.body.Country,
+        city : req.body.city,
+        street : req.body.street,
+        subscription : req.body.subscription
     });
 
     res.status(201).json({ data: Company_requests });
@@ -738,6 +794,27 @@ exports.Accept_Company_requests_admin = asyncHandler(async (req, res, next) =>{
 
     Company_requests.slug = slugify(Company_requests.name);
 
+    const calculateEndDate = (type) => {
+        const startDate = new Date();
+        let endDate;
+        switch(type) {
+            case 'Yearly':
+                endDate = new Date(startDate.setFullYear(startDate.getFullYear() + 1));
+                break;
+            case 'Quarterly':
+                endDate = new Date(startDate.setMonth(startDate.getMonth() + 3));
+                break;
+            case 'Monthly':
+                endDate = new Date(startDate.setMonth(startDate.getMonth() + 1));
+                break;
+            default:
+                throw new Error('Invalid subscription type');
+        }
+        return endDate;
+    };
+
+    const endDate = calculateEndDate(req.body.subscriptionType); // تأكد من تمرير نوع الاشتراك هنا
+
     const company = await companymodel.create({
         name: Company_requests.name,
         slug: Company_requests.slug,
@@ -749,7 +826,17 @@ exports.Accept_Company_requests_admin = asyncHandler(async (req, res, next) =>{
         linkedIn: Company_requests.linkedIn,
         facebook: Company_requests.facebook,
         instagram: Company_requests.instagram,
-        categorey: Company_requests.categorey
+        email: Company_requests.email,
+        categorey: Company_requests.categorey,
+        type: Company_requests.type,
+        Country: Company_requests.Country,
+        city: Company_requests.city,
+        street: Company_requests.street,
+        subscription: {
+            type: Company_requests.subscription,
+            startDate: Date.now(),
+            endDate: endDate // تحديد تاريخ الانتهاء
+        }
     });
 
     const delete_Company_requests = await Company_requestsmodel.findByIdAndDelete(req.params.id)
