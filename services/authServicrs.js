@@ -11,19 +11,13 @@ const sendemail = require("../resetEmail")
 
 // -----------------------------------
 exports.sign_up = asyncHandler(  async (req,res, next)=>{
+    
 
-    if(req.body.role === "admin" || req.body.role === "employee" ){
-        return next(new ApiError(`You can not be an admin ${req.body.role}`, 401))
-    }
-    
-    
     const user = await usermodel.create({
         name : req.body.name,
         email : req.body.email,
         password : await bcrypt.hash(req.body.password, 12),
-        passwordConfirm : req.body.passwordConfirm,
-        phone : req.body.phone,
-        role: req.body.role
+        passwordConfirm : req.body.passwordConfirm
     })
 
     const token = jsonwebtoken.sign(
@@ -42,7 +36,7 @@ exports.login = asyncHandler(  async (req,res, next)=>{
     const user = await usermodel.findOne({email :req.body.email})
 
     if(!user || !await bcrypt.compare(req.body.password, user.password)){
-        return next(new ApiError(`error email or password` , 401))
+        return next(new ApiError(`E-mail or password is incorrect` , 401))
     }
 
     const token = jsonwebtoken.sign(
@@ -115,29 +109,35 @@ exports.get_user_my = asyncHandler(  async (req,res, next)=>{
 })
 
 // ------------------------------------------------------
-exports.update_user_my = asyncHandler( async (req,res,next)=>{
-
-    if(req.body.name){
-        req.body.slug = slugify(req.body.name)
+exports.update_user_my = asyncHandler(async (req, res, next) => {
+    if (req.body.name) {
+      req.body.slug = slugify(req.body.name);
     }
-
+  
+    const updateData = {
+      name: req.body.name,
+      slug: req.body.slug,
+      phone: req.body.phone
+    };
+  
+    // تحديث الحقل profilImage فقط إذا كانت الصورة موجودة
+    if (req.body.profilImage) {
+      updateData.profilImage = `${process.env.BASE_URL}/user/${req.body.profilImage}`;
+    }
+  
     const user = await usermodel.findOneAndUpdate(
-        {_id : req.user._id},
-        {
-            name : req.body.name,
-            slug : req.body.slug,
-            email : req.body.email,
-            phone : req.body.phone,
-            profilImage : `${process.env.BASE_URL}/user/${req.body.profilImage}`,
-        },
-        {new: true}
-    )
-    if(!user){
-        return next(new ApiError(`there is no user id ` , 404))
+      { _id: req.user._id },
+      updateData,
+      { new: true }
+    );
+  
+    if (!user) {
+      return next(new ApiError(`there is no user with id ${req.user._id}`, 404));
     }
-    res.status(200).json({data:user})
-})
-
+  
+    res.status(200).json({ data: user });
+  });
+  
 // ---------------------------------------------------------
 exports.update_user_password_my = asyncHandler( async (req,res,next)=>{
 

@@ -26,6 +26,13 @@ mongoose.connect(process.env.DB_URL).then(() => {
 const app = express();
 app.use(cors());
 
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    next();
+  });
+  
+
 // تكوين الجلسات
 app.use(session({
     secret: 'your-secret-key',
@@ -38,7 +45,7 @@ app.use(session({
 // const csrfProtection = csurf();
 // app.use(csrfProtection);
 
-app.use(express.json({ limit: "20kb" }));
+app.use(express.json({ limit: "10000kb" }));
 app.use(express.static(path.join(__dirname, "image")));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));

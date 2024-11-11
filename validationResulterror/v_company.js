@@ -41,12 +41,11 @@ exports.create_company_V = [
         .notEmpty().withMessage("Enter your company logo"),
 
     check("phone")
-        .optional()
+        .notEmpty().withMessage("Enter your phone number")
         .isMobilePhone(["ar-AE", "ar-BH", "ar-DZ", "ar-SY", "ar-MA", "ar-SA", "ar-QA", "ar-KW", "ar-OM", "ar-JO", "ar-LB", "ar-DJ", "ar-MR", "ar-PS", "ar-TN", "ar-YE", "ar-IQ", "ar-SD", "ar-LY"])
         .withMessage("The phone number is invalid. It must be a valid Arabic phone number."),
 
     check("linkedIn")
-        .optional()
         .custom(value => {
             if (value && !isValidLinkedInURL(value)) {
                 throw new Error("The link must be a valid LinkedIn URL.");
@@ -55,7 +54,6 @@ exports.create_company_V = [
         }),
 
     check("facebook")
-        .optional()
         .custom(value => {
             if (value && !isValidFacebookURL(value)) {
                 throw new Error("The link must be a valid Facebook URL.");
@@ -64,7 +62,6 @@ exports.create_company_V = [
         }),
 
     check("instagram")
-        .optional()
         .custom(value => {
             if (value && !isValidInstagramURL(value)) {
                 throw new Error("The link must be a valid Instagram URL.");
@@ -73,40 +70,47 @@ exports.create_company_V = [
         }),
 
     check("email")
-    .optional()
-    .isEmail().withMessage("Invalid email"),
+        .notEmpty().withMessage("Enter your email")
+        .isEmail().withMessage("Invalid email"),
 
     check("categorey")
         .notEmpty().withMessage("Enter a category for your company")
         .isMongoId().withMessage("Error in id")
-        .custom((val)=>
-            Categoreymodel.findById(val).then((Categorey) =>{
+        .custom((val) =>
+            Categoreymodel.findById(val).then((Categorey) => {
                 if (!Categorey) {
                     throw new Error(`There is no Categorey for this ID: ${val}`);
                 }
             })
-        )
+        ),
 
-        ,
     check("user")
-        .notEmpty().withMessage("Enter your company name")
+        .notEmpty().withMessage("Enter the user ID")
         .isMongoId().withMessage("Error in id")
-        .custom((val)=>
-            usermodel.findById(val).then((user) =>{
+        .custom((val) =>
+            usermodel.findById(val).then((user) => {
                 if (!user) {
-                    throw new Error(`There is no Categorey for this ID: ${val}`);
+                    throw new Error(`There is no user for this ID: ${val}`);
                 }
             })
-        )
-        ,
+        ),
+
+    check("Country")
+        .notEmpty().withMessage("Enter your country"),
+
+    // check("type")
+    //     .notEmpty().withMessage("Select a plan")
+    //     .isIn(["basic plan", "advanced plan", "premium plan"]).withMessage("Invalid plan type"),
+
+    check("subscriptionType")
+        .notEmpty().withMessage("Select a subscription type")
+        .isIn(["Yearly", "Quarterly", "Monthly"]).withMessage("Invalid subscription type"),
+
     validationMiddiel
 ];
 
+
 exports.update_company_my_V = [
-    check("phone")
-        .optional()
-        .isMobilePhone(["ar-AE", "ar-BH", "ar-DZ", "ar-SY", "ar-MA", "ar-SA", "ar-QA", "ar-KW", "ar-OM", "ar-JO", "ar-LB", "ar-DJ", "ar-MR", "ar-PS", "ar-TN", "ar-YE", "ar-IQ", "ar-SD", "ar-LY"])
-        .withMessage("The phone number is invalid. It must be a valid Arabic phone number."),
 
     check("linkedIn")
         .optional()
@@ -134,10 +138,20 @@ exports.update_company_my_V = [
             }
             return true;
         }),
+        check("name")
+        .notEmpty().withMessage("Enter your company name"),
 
-    check("email")
-        .optional()
-        .isEmail().withMessage("Invalid email"),
+        check("description")
+        .notEmpty().withMessage("Enter a description of your company.")
+        .isLength({ min: 15 }).withMessage("This description is short."),
+
+        check("phone")
+        .notEmpty().withMessage("Enter your phone number")
+        .isMobilePhone(["ar-AE", "ar-BH", "ar-DZ", "ar-SY", "ar-MA", "ar-SA", "ar-QA", "ar-KW", "ar-OM", "ar-JO", "ar-LB", "ar-DJ", "ar-MR", "ar-PS", "ar-TN", "ar-YE", "ar-IQ", "ar-SD", "ar-LY"])
+        .withMessage("The phone number is invalid. It must be a valid Arabic phone number."),
+
+    check("Country")
+    .notEmpty().withMessage("Enter your country"),
 
     validationMiddiel
 ]
@@ -153,8 +167,14 @@ exports.update_company_id_V = [
         })   
     ),
 
+    check("name")
+        .notEmpty().withMessage("Enter your company name"),
+
+    check("description")
+        .notEmpty().withMessage("Enter a description of your company.")
+        .isLength({ min: 15 }).withMessage("This description is short."),
+
     check("phone")
-    .optional()
     .isMobilePhone(["ar-AE", "ar-BH", "ar-DZ", "ar-SY", "ar-MA", "ar-SA", "ar-QA", "ar-KW", "ar-OM", "ar-JO", "ar-LB", "ar-DJ", "ar-MR", "ar-PS", "ar-TN", "ar-YE", "ar-IQ", "ar-SD", "ar-LY"])
     .withMessage("The phone number is invalid. It must be a valid Arabic phone number."),
 
@@ -175,6 +195,14 @@ exports.update_company_id_V = [
         }
         return true;
     }),
+
+    check("Country")
+    .notEmpty().withMessage("Enter your country"),
+
+    
+    check("email")
+        .notEmpty().withMessage("Enter your email")
+        .isEmail().withMessage("Invalid email"),
 
     check("instagram")
     .optional()
@@ -268,6 +296,17 @@ exports.create_Categorey_V = [
     validationMiddiel
 ]
 
+exports.update_Categorey_V = [
+    check("name")
+    .notEmpty().withMessage("Enter category name"),
+
+    check("description")
+    .notEmpty().withMessage("Enter a category description"),
+
+    validationMiddiel
+]
+
+
 
 exports.delete_Categorey_V = [
     check("id")
@@ -296,16 +335,7 @@ exports.create_Company_requests_V = [
 
     check("description")
         .notEmpty().withMessage("Enter a description of your company.")
-        .isLength({ min: 15 }).withMessage("This description is short.")
-        .custom((val, { req }) => {
-            if (req.type === 'basic plan' && val.length > 150) {
-                throw new Error('The description must be less than 50 characters for a Basic plan.');
-            }
-            if (req.type === 'advanced plan' && val.length > 300) {
-                throw new Error('The description must be less than 30 characters for a Basic plan.');
-            }
-            return true;
-        }),
+        .isLength({ min: 15 }).withMessage("This description is short."),
 
     check("companyImage")
     .notEmpty().withMessage("Enter a picture of your company."),
@@ -358,7 +388,11 @@ exports.create_Company_requests_V = [
                 throw new Error(`There is no Categorey for this ID: ${val}`);
             }
         })
-    )
+    ),
+
+    check("subscription")
+        .notEmpty().withMessage("Select a subscription type")
+        .isIn(["Yearly", "Quarterly", "Monthly"]).withMessage("Invalid subscription type")
     ,
     validationMiddiel
 ]

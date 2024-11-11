@@ -28,6 +28,10 @@ exports.create_user_V = [
     .notEmpty().withMessage("Enter your password")
     .isLength({min: 5}).withMessage("the password is short"),
 
+
+    check("role")
+    .notEmpty().withMessage("Enter role"),
+
     check("passwordConfirm")
     .notEmpty().withMessage("Enter your passwordConfirm")
     .custom((val , {req})=>{

@@ -34,19 +34,6 @@ exports.sign_up_V = [
         }
 
         return true  
-    }),
-
-    check("phone")
-    .optional()
-    .isMobilePhone(["ar-AE","ar-BH","ar-DZ","ar-SY","ar-MA"]).withMessage("the number is invalid"),
-
-    check("role")
-    .custom((val)=>{
-        if(val === "user" || val === "employee"){
-            throw new Error(`You can not be an ${val}`)
-        }
-
-        return true
     })
 
     ,
@@ -54,33 +41,30 @@ exports.sign_up_V = [
 ]
 
 exports.login_V = [
-    check("email")
-    .notEmpty().withMessage("Enter your email")
-    .custom((val)=>
-        usermodel.findOne({email : val}).then((user)=>{
-            if(!user){
-                throw new Error("Error email or password")
-            }
-        })
-    )
-    ,
+    // check("email")
+    // .notEmpty().withMessage("Enter your email")
+    // .custom((val)=>
+    //     usermodel.findOne({email : val}).then((user)=>{
+    //         if(!user){
+    //             throw new Error("Error email or password")
+    //         }
+    //     })
+    // )
+    // ,
 
-    check("password")
-    .notEmpty().withMessage("Enter your password")
-    ,
+    // check("password")
+    // .notEmpty().withMessage("Enter your password")
+    // ,
     validationMiddiel
 ]
 
 exports.update_user_my_V = [
-    check("email")
+    check("name")
+    .notEmpty().withMessage("Enter your name"),
+    
+    check("phone")
     .optional()
-    .custom((val)=>
-        usermodel.findOne({email : val}).then((user)=>{
-            if(user){
-                throw new Error("email is availadle")
-            }
-        })  
-    )
+    .isMobilePhone(["ar-AE","ar-BH","ar-DZ","ar-SY","ar-MA"]).withMessage("the number is invalid")
     ,
     validationMiddiel
 ]
