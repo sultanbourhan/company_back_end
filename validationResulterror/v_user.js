@@ -1,145 +1,128 @@
-const {check , bode} = require("express-validator")
-
-const validationMiddiel = require("./validationResulte")
-
-const usermodel = require("../models/userModels")
-
+const { check, body } = require("express-validator");
+const validationMiddiel = require("./validationResulte");
+const usermodel = require("../models/userModels");
 
 exports.create_user_V = [
     check("name")
-    .notEmpty().withMessage("Enter your name"),
+    .notEmpty().withMessage("الرجاء إدخال اسمك"),
 
     check("email")
-    .notEmpty().withMessage("Enter your email")
-    .isEmail().withMessage("the email is incorrect")
-    .custom((val)=>
-        usermodel.findOne({email : val}).then((user)=>{
-            if(user){
-                throw new Error("email is availadle")
+    .notEmpty().withMessage("الرجاء إدخال بريدك الإلكتروني")
+    .isEmail().withMessage("البريد الإلكتروني غير صحيح")
+    .custom((val) =>
+        usermodel.findOne({ email: val }).then((user) => {
+            if (user) {
+                throw new Error("البريد الإلكتروني مستخدم بالفعل");
             }
-        })   
+        })
     ),
 
     check("phone")
     .optional()
-    .isMobilePhone(["ar-AE","ar-BH","ar-DZ","ar-SY","ar-MA"]).withMessage("the number is invalid"),
+    .isMobilePhone(["ar-AE", "ar-BH", "ar-DZ", "ar-SY", "ar-MA"]).withMessage("رقم الهاتف غير صالح"),
 
     check("password")
-    .notEmpty().withMessage("Enter your password")
-    .isLength({min: 5}).withMessage("the password is short"),
-
+    .notEmpty().withMessage("الرجاء إدخال كلمة المرور")
+    .isLength({ min: 5 }).withMessage("كلمة المرور قصيرة للغاية"),
 
     check("role")
-    .notEmpty().withMessage("Enter role"),
+    .notEmpty().withMessage("الرجاء إدخال الدور"),
 
     check("passwordConfirm")
-    .notEmpty().withMessage("Enter your passwordConfirm")
-    .custom((val , {req})=>{
-        if(val !== req.body.password){
-            throw new Error("the password is incorrect")
+    .notEmpty().withMessage("الرجاء تأكيد كلمة المرور")
+    .custom((val, { req }) => {
+        if (val !== req.body.password) {
+            throw new Error("كلمة المرور غير متطابقة");
         }
+        return true;
+    }),
 
-        return true  
-    })
-    
-    ,
     validationMiddiel
-]
+];
 
 exports.get_user_ID_V = [
     check("id")
-    .isMongoId().withMessage("There is an error in id")
-    ,
+    .isMongoId().withMessage("معرف المستخدم غير صحيح"),
     validationMiddiel
-]
+];
 
 exports.update_user_V = [
     check("id")
-    .isMongoId().withMessage("There is an error in id"),
+    .isMongoId().withMessage("معرف المستخدم غير صحيح"),
 
     check("email")
     .optional()
-    .isEmail().withMessage("the email is incorrect")
-    .custom((val)=>
-        usermodel.findOne({email : val}).then((user)=>{
-            if(user){
-                throw new Error("email is availadle")
+    .isEmail().withMessage("البريد الإلكتروني غير صحيح")
+    .custom((val) =>
+        usermodel.findOne({ email: val }).then((user) => {
+            if (user) {
+                throw new Error("البريد الإلكتروني مستخدم بالفعل");
             }
-        })   
+        })
     ),
 
     check("phone")
     .optional()
-    .isMobilePhone(["ar-AE","ar-BH","ar-DZ","ar-SY","ar-MA"]).withMessage("the number is invalid")
+    .isMobilePhone(["ar-AE", "ar-BH", "ar-DZ", "ar-SY", "ar-MA"]).withMessage("رقم الهاتف غير صالح"),
 
-    ,
     validationMiddiel
-]
+];
 
 exports.delete_user_V = [
     check("id")
-    .isMongoId().withMessage("There is an error in id")
-    ,
+    .isMongoId().withMessage("معرف المستخدم غير صحيح"),
     validationMiddiel
-]
+];
 
 exports.update_password_user_V = [
     check("id")
-    .isMongoId().withMessage("There is an error in id"),
+    .isMongoId().withMessage("معرف المستخدم غير صحيح"),
 
     check("password")
-    .notEmpty().withMessage("Enter your new password"),
+    .notEmpty().withMessage("الرجاء إدخال كلمة المرور الجديدة"),
 
     check("passwordConfirm")
-    .notEmpty().withMessage("Enter your passwordConfirm")
-    .custom((val , {req})=>{
-        if(val !== req.body.password){
-            throw new Error("the password is incorrect")
+    .notEmpty().withMessage("الرجاء تأكيد كلمة المرور")
+    .custom((val, { req }) => {
+        if (val !== req.body.password) {
+            throw new Error("كلمة المرور غير متطابقة");
         }
+        return true;
+    }),
 
-        return true  
-    })
-    ,
     validationMiddiel
-]
+];
 
 exports.create_addresses_user_V = [
     check("address_location")
-    .notEmpty().withMessage("Enter your sddress"),
+    .notEmpty().withMessage("الرجاء إدخال الموقع"),
 
     check("details")
-    .notEmpty().withMessage("Enter your sddress details"),
+    .notEmpty().withMessage("الرجاء إدخال تفاصيل العنوان"),
 
     check("phone")
     .optional()
-    .isMobilePhone(["ar-AE","ar-BH","ar-DZ","ar-SY","ar-MA"]).withMessage("the number is invalid"),
+    .isMobilePhone(["ar-AE", "ar-BH", "ar-DZ", "ar-SY", "ar-MA"]).withMessage("رقم الهاتف غير صالح"),
 
     validationMiddiel
-]
+];
 
 exports.delete_addresses_user_V = [
     check("addressesid")
-    .isMongoId().withMessage("There is an error in id")
-    ,
+    .isMongoId().withMessage("معرف العنوان غير صحيح"),
     validationMiddiel
-]
+];
 
 exports.create_wichlist_user_V = [
-
     check("productid")
-    .notEmpty().withMessage("Enter product")
-    .isMongoId().withMessage("there is on id")
-    ,
+    .notEmpty().withMessage("الرجاء إدخال المنتج")
+    .isMongoId().withMessage("المعرف غير صالح"),
     validationMiddiel
-
-]
+];
 
 exports.delete_wichlist_user_V = [
-
     check("productid")
-    .notEmpty().withMessage("Enter product")
-    .isMongoId().withMessage("there is on id")
-    ,
+    .notEmpty().withMessage("الرجاء إدخال المنتج")
+    .isMongoId().withMessage("المعرف غير صالح"),
     validationMiddiel
-
-]
+];

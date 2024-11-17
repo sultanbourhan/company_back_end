@@ -73,17 +73,31 @@ const companySchema = new mongoose.Schema({
         ref : "categorey"
     },
 
+    categoreys : {
+        type : mongoose.Schema.ObjectId,
+        ref : "categorey"
+    },
+
     type : {
         type : String,
         enum : ["basic plan", "advanced plan" , "premium plan"],
     },
 
-    Country: String,
+    Country: {
+        type: String,
+        set: (value) => {
+            // تحويل أول حرف من القيمة إلى حرف كبير
+            if (value && typeof value === 'string') {
+                return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+            }
+            return value; // في حال كانت القيمة فارغة أو غير موجودة
+        }
+    },
     city : String,
     street: String,
 
     subscription: {
-        type: { type: String, enum: ['Yearly', 'Quarterly', 'Monthly'], required: true },
+        type: { type: String, enum: ['سنوي', 'ثلاث شهور', 'شهري'], required: true },
         startDate: { type: Date, default: Date.now },
         endDate: { type: Date, required: true }
     },

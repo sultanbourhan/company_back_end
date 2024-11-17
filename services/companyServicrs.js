@@ -11,6 +11,7 @@ const { v4: uuidv4 } = require("uuid");
 const { text } = require("body-parser");
 const usermodel = require("../models/userModels");
 const path = require("path");
+const mongoose = require('mongoose');
 
 // --------------------------------------------
 
@@ -112,13 +113,13 @@ exports.create_company = asyncHandler(async (req, res, next) => {
         const startDate = new Date();
         let endDate;
         switch(type) {
-            case 'Yearly':
+            case 'سنوي':
                 endDate = new Date(startDate.setFullYear(startDate.getFullYear() + 1));
                 break;
-            case 'Quarterly':
+            case 'ثلاث شهور':
                 endDate = new Date(startDate.setMonth(startDate.getMonth() + 3));
                 break;
-            case 'Monthly':
+            case 'شهري':
                 endDate = new Date(startDate.setMonth(startDate.getMonth() + 1));
                 break;
             default:
@@ -144,6 +145,7 @@ exports.create_company = asyncHandler(async (req, res, next) => {
         instagram: req.body.instagram,
         email: req.body.email,
         categorey: req.body.categorey,
+        categoreys: req.body.categorey,
         // type: req.body.type,
         Country: req.body.Country,
         city: req.body.city,
@@ -164,9 +166,8 @@ exports.create_company = asyncHandler(async (req, res, next) => {
 exports.get_company = asyncHandler(async (req, res, next) => {
     // تحديد الصفحة والحد من النتائج لكل صفحة
     const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 10;
+    const limit = parseInt(req.query.limit, 10) || 10000;
     const skip = (page - 1) * limit;
-    const inIndex = page * limit;
 
     // تحضير الاستعلام من الطلب وحذف الحقول غير الضرورية
     const reqQuery = { ...req.query };
@@ -187,15 +188,14 @@ exports.get_company = asyncHandler(async (req, res, next) => {
     pagination.limit = limit;
     pagination.Allcompany = Allcompany;
     pagination.numberOfPage = Math.ceil(Allcompany / limit);
-    if (inIndex < Allcompany) {
-        pagination.nextPage = page + 1;
-    }
-    if (skip > 0) {
-        pagination.prevPage = page - 1;
-    }
 
-    // إعداد الشروط للتحقق من تاريخ انتهاء الاشتراك
+    // تحضير الشروط الأساسية
     let match = { ...reqQueryJson, "subscription.endDate": { $gt: new Date() } };
+
+    // إضافة فلتر الفئة (categoreys) إذا كانت موجودة في الطلب
+    if (req.query.categoreys) {
+        match['categoreys'] = new mongoose.Types.ObjectId(req.query.categoreys);  // استخدام 'new'
+    }
 
     // إعداد البحث بالكلمات المفتاحية إذا كانت موجودة
     let search = {};
@@ -203,22 +203,22 @@ exports.get_company = asyncHandler(async (req, res, next) => {
         search.$or = [
             { name: { $regex: req.query.keyword, $options: "i" } },
             { description: { $regex: req.query.keyword, $options: "i" } },
+            { Country: { $regex: req.query.keyword, $options: "i" } },
         ];
     }
 
     // إعداد خط الأنابيب للتجميع في MongoDB
     let aggregationPipeline = [
-        { $match: match },
-        { $match: search },
-        { $sort: { premium: -1 } },
+        { $match: match },  // تطابق مع معايير الفلترة الأساسية
+        { $match: search },  // تطبيق البحث بالكلمات المفتاحية
         { $skip: skip },
-        { $limit: limit }
+        { $limit: limit },
     ];
 
     // إضافة الفرز إذا كان موجودًا في الطلب
     if (req.query.sort) {
         const sortBy = req.query.sort.split(",").join(" ");
-        aggregationPipeline.push({ $sort: sortBy });
+        aggregationPipeline.push({ $sort: { premium: -1 } });  // أو استخدم sortBy إذا كانت مخصصة
     }
 
     // إضافة الحقول المطلوبة أو استبعاد الحقول غير المطلوبة
@@ -230,20 +230,21 @@ exports.get_company = asyncHandler(async (req, res, next) => {
     }
 
     // تنفيذ التجميع وجلب الشركات
-    const companyIds = await companymodel.aggregate(aggregationPipeline).exec();
-    
-    // استخدام populate لاسترجاع البيانات المتعلقة
-    
-    const companies = await companymodel.find({ _id: { $in: companyIds.map(c => c._id) } })
-        .populate({ path: 'categorey' })
-        .populate({ path: 'user' })
+    const companies = await companymodel.aggregate(aggregationPipeline).exec();
+
+    // استخدام populate لاسترجاع البيانات المتعلقة بالـ user و categoreys
+    const populatedCompanies = await companymodel.find({ _id: { $in: companies.map(c => c._id) } })
+        .populate({ path: 'user' })  // Populate الـ user مع اختيار الحقول المناسبة
+        .populate({ path: 'categorey'})  // Populate الـ categoreys مع اختيار الحقول المناسبة
         .exec();
 
-
     // إرسال الاستجابة
-    res.status(200).json({ results: companies.length, pagination, data: companies });
+    res.status(200).json({
+        results: populatedCompanies.length,
+        pagination,
+        data: populatedCompanies
+    });
 });
-
 
 
 
@@ -259,13 +260,14 @@ exports.get_company_id =asyncHandler( async (req, res, next)=>{
     res.status(201).json({data:company})
 })
 
+
 // ------------------------------------------------------
 exports.get_company_my =asyncHandler( async (req, res, next)=>{
 
-    const company = await companymodel.findOne({user: req.user._id}).populate({path: "user"})
+    const company = await companymodel.findOne({user: req.user._id}).populate({path: "user"}).populate({path: "categorey"}).populate({path: "comments.user_comment"})
 
     if(!company){
-        return next(new ApiError(`You do not have a company account.` , 404))
+        return next(new ApiError(`.ليس لديك حساب شركة.` , 404))
     }
 
     res.status(201).json({data:company})
@@ -388,7 +390,7 @@ exports.create_company_advertisements_my =asyncHandler( async (req, res, next)=>
     const company = await companymodel.findOne({user: req.user._id})
 
     if(!company){
-        return next(new ApiError(`You do not have a company account.` , 404))
+        return next(new ApiError(`.ليس لديك حساب شركة` , 404))
     }
 
     // if (company.type === "basic plan") {
@@ -453,6 +455,16 @@ exports.delete_company_advertisements_my =asyncHandler( async (req, res, next)=>
     }
 
     advertisements = await advertisementsmodel.findByIdAndDelete(req.params.id)
+
+    
+
+    res.status(200).send()
+})
+
+// ====================================================================
+exports.delete_company_advertisements_admin =asyncHandler( async (req, res, next)=>{
+
+    const advertisements = await advertisementsmodel.findByIdAndDelete(req.params.id)
 
     
 
@@ -551,7 +563,7 @@ exports.create_company_comments = asyncHandler(async (req, res, next) => {
     });
 
     if (company) {
-        return next(new ApiError('You have already commented on this company.', 400));
+        return next(new ApiError('.لقد قمت بالفعل بالتعليق على هذه الشركة', 400));
     }
 
     // إذا لم يكن هناك تعليق سابق، إضافة التعليق الجديد
@@ -635,6 +647,7 @@ exports.delete_company_comments_admin = asyncHandler(async (req, res, next) => {
 
 // ---------------------------------------------------------------
 exports.create_company_Reviews = asyncHandler(async (req, res, next) => {
+    // البحث عن الشركة باستخدام ID
     const company = await companymodel.findById(req.params.id);
     if (!company) {
         return next(new ApiError(`There is no company account for this ID ${req.params.id}.`, 404));
@@ -642,27 +655,40 @@ exports.create_company_Reviews = asyncHandler(async (req, res, next) => {
 
     // التحقق مما إذا كان المستخدم قد قام بترك تقييم مسبقًا
     const existingReview = company.reviews.find(review => review.user_review.toString() === req.user._id.toString());
+
     if (existingReview) {
-        return next(new ApiError('You have already left a review for this company.', 400));
+        // تعديل التقييم القديم إذا كان موجودًا
+        existingReview.rating = req.body.rating;
+    } else {
+        // إضافة التقييم الجديد إذا لم يكن موجودًا
+        const newReview = {
+            rating: req.body.rating,
+            user_review: req.user._id
+        };
+        company.reviews.push(newReview);
     }
 
-    // إضافة التقييم الجديد
-    const newReview = {
-        rating: req.body.rating,
-        user_review: req.user._id
-    };
-    company.reviews.push(newReview);
-
     // حساب متوسط التقييمات الجديد
-    company.ratingsQuantity = company.reviews.length;
-    company.ratingsAverage = company.reviews.reduce((acc, review) => acc + review.rating, 0) / company.ratingsQuantity;
+    // فلترة التقييمات غير الصالحة قبل الحساب
+    const validRatings = company.reviews.filter(review => typeof review.rating === 'number' && !isNaN(review.rating));
 
+    company.ratingsQuantity = validRatings.length;
+
+    if (company.ratingsQuantity > 0) {
+        company.ratingsAverage = validRatings.reduce((acc, review) => acc + review.rating, 0) / company.ratingsQuantity;
+    } else {
+        company.ratingsAverage = 0; // إذا كانت الشركة لا تحتوي على تقييمات صالحة
+    }
+
+    // حفظ الشركة مع التقييمات الجديدة أو المعدلة
     await company.save();
 
+    // تحديث نقاط المستخدم
     const user = await usermodel.findById(req.user._id);
     user.point += 8;
     await user.save();
 
+    // إرسال الرد بنجاح
     res.status(200).json({ data: company });
 });
 
@@ -826,9 +852,9 @@ exports.delete_Company_requests = asyncHandler(async (req, res, next) =>{
 // ---------------------------------------------------------------
 exports.get_Company_requests_my = asyncHandler(async (req, res, next) =>{
 
-    const Company_requests = await Company_requestsmodel.find({user : req.user._id})
+    const Company_requests = await Company_requestsmodel.findOne({user : req.user._id})
 
-    res.status(201).json({nam : Company_requests.length , data : Company_requests});
+    res.status(201).json({ data : Company_requests});
 
 })
 
@@ -866,13 +892,13 @@ exports.Accept_Company_requests_admin = asyncHandler(async (req, res, next) =>{
         const startDate = new Date();
         let endDate;
         switch(type) {
-            case 'Yearly':
+            case 'سنوي':
                 endDate = new Date(startDate.setFullYear(startDate.getFullYear() + 1));
                 break;
-            case 'Quarterly':
+            case 'ثلاث شهور':
                 endDate = new Date(startDate.setMonth(startDate.getMonth() + 3));
                 break;
-            case 'Monthly':
+            case 'شهري':
                 endDate = new Date(startDate.setMonth(startDate.getMonth() + 1));
                 break;
             default:
@@ -896,6 +922,7 @@ exports.Accept_Company_requests_admin = asyncHandler(async (req, res, next) =>{
         instagram: Company_requests.instagram,
         email: Company_requests.email,
         categorey: Company_requests.categorey,
+        categoreys: Company_requests.categorey,
         Country: Company_requests.Country,
         city: Company_requests.city,
         street: Company_requests.street,

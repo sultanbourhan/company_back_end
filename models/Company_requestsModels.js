@@ -91,7 +91,7 @@ const Company_requestsModelsSchema = new mongoose.Schema(
 
     subscription: {
       type: String,
-      enum: ["Yearly", "Quarterly", "Monthly"],
+      enum: ['سنوي', 'ثلاث شهور', 'شهري'],
       required: true,
     },
   },

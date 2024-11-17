@@ -1,121 +1,119 @@
-const {check , bode} = require("express-validator")
+const { check, body } = require("express-validator");
 
-const validationMiddiel = require("./validationResulte")
+const validationMiddiel = require("./validationResulte");
 
-const usermodel = require("../models/userModels")
+const usermodel = require("../models/userModels");
 
 const slugify = require("slugify");
 const bcrypt = require("bcryptjs");
 
 exports.sign_up_V = [
     check("name")
-    .notEmpty().withMessage("Enter your name"),
+        .notEmpty().withMessage("يجب إدخال اسمك"),
 
     check("email")
-    .notEmpty().withMessage("Enter your email")
-    .isEmail().withMessage("the email is incorrect")
-    .custom((val)=>
-        usermodel.findOne({email : val}).then((user)=>{
-            if(user){
-                throw new Error("email is availadle")
-            }
-        })   
-    ),
+        .notEmpty().withMessage("يجب إدخال بريدك الإلكتروني")
+        .isEmail().withMessage("البريد الإلكتروني غير صحيح")
+        .custom((val) =>
+            usermodel.findOne({ email: val }).then((user) => {
+                if (user) {
+                    throw new Error("البريد الإلكتروني مستخدم بالفعل");
+                }
+            })
+        ),
 
     check("password")
-    .notEmpty().withMessage("Enter your password")
-    .isLength({min: 5}).withMessage("the password is short"),
+        .notEmpty().withMessage("يجب إدخال كلمة المرور")
+        .isLength({ min: 5 }).withMessage("كلمة المرور قصيرة"),
 
     check("passwordConfirm")
-    .notEmpty().withMessage("Enter your passwordConfirm")
-    .custom((val , {req})=>{
-        if(val !== req.body.password){
-            throw new Error("the password is incorrect")
-        }
+        .notEmpty().withMessage("يجب إدخال تأكيد كلمة المرور")
+        .custom((val, { req }) => {
+            if (val !== req.body.password) {
+                throw new Error("كلمة المرور غير متطابقة");
+            }
 
-        return true  
-    })
+            return true;
+        }),
 
-    ,
     validationMiddiel
-]
+];
 
 exports.login_V = [
-    // check("email")
-    // .notEmpty().withMessage("Enter your email")
-    // .custom((val)=>
-    //     usermodel.findOne({email : val}).then((user)=>{
-    //         if(!user){
-    //             throw new Error("Error email or password")
-    //         }
-    //     })
-    // )
-    // ,
-
-    // check("password")
-    // .notEmpty().withMessage("Enter your password")
-    // ,
+    // لا حاجة للتحقق من البريد الإلكتروني وكلمة المرور هنا لأننا نستخدم الجلسة في تطبيقات الاستيثاق الحديثة
     validationMiddiel
-]
+];
 
 exports.update_user_my_V = [
     check("name")
-    .notEmpty().withMessage("Enter your name"),
-    
+        .notEmpty().withMessage("يجب إدخال اسمك"),
+
     check("phone")
-    .optional()
-    .isMobilePhone(["ar-AE","ar-BH","ar-DZ","ar-SY","ar-MA"]).withMessage("the number is invalid")
-    ,
+        .optional()
+        .isMobilePhone(["ar-AE", "ar-BH", "ar-DZ", "ar-SY", "ar-MA"]).withMessage("الرقم غير صالح"),
+
     validationMiddiel
-]
+];
 
 exports.update_user_password_my_V = [
     check("password")
-    .notEmpty().withMessage("Enter your password")
-    .custom(async (val , {req})=>{
-        const user = await usermodel.findById(req.user._id)
-        
-        if(!user){
-            throw new Error("not user")
-        }
+        .notEmpty().withMessage("يجب إدخال كلمة المرور الحالية")
+        .custom(async (val, { req }) => {
+            const user = await usermodel.findById(req.user._id);
 
-        const pass = await bcrypt.compare(val , user.password)
+            if (!user) {
+                throw new Error("لم يتم العثور على المستخدم");
+            }
 
+            const pass = await bcrypt.compare(val, user.password);
 
-        if(!pass){
-            throw new Error("the password is incorrect")
-        }
+            if (!pass) {
+                throw new Error("كلمة المرور الحالية غير صحيحة");
+            }
 
-        return true
-    }),
+            return true;
+        }),
 
     check("newpassword")
-    .notEmpty().withMessage("Enter your new password"),
+        .notEmpty().withMessage("يجب إدخال كلمة مرور جديدة"),
 
     check("newpasswordConfirm")
-    .notEmpty().withMessage("Enter your new password Confirm")
-    .custom((val , {req})=>{
-        if(val !== req.body.newpassword){
-            throw new Error("the newpassword is incorrect")
-        }
+        .notEmpty().withMessage("يجب إدخال تأكيد كلمة المرور الجديدة")
+        .custom((val, { req }) => {
+            if (val !== req.body.newpassword) {
+                throw new Error("كلمة المرور الجديدة غير متطابقة");
+            }
 
-        return true
-    })
-    ,
+            return true;
+        }),
+
     validationMiddiel
-]
-
+];
 
 exports.forgotpassord_V = [
     check("email")
-    .notEmpty().withMessage("Enter your email")
-    .custom((val)=>
-        usermodel.findOne({email : val}).then((user)=>{
-            if(!user){
-                throw new Error("Email error")
-            }
-        })  
-    )
-    ,
+        .notEmpty().withMessage("يجب إدخال بريدك الإلكتروني")
+        .custom((val) =>
+            usermodel.findOne({ email: val }).then((user) => {
+                if (!user) {
+                    throw new Error("البريد الإلكتروني غير موجود");
+                }
+            })
+        ),
+
     validationMiddiel
-]
+];
+
+exports.receiveAndSendEmailMe_v = [
+    check("email")
+        .notEmpty().withMessage("يجب إدخال بريدك الإلكتروني")
+        .isEmail().withMessage("يرجى إدخال بريد إلكتروني صالح"),
+
+    check("subject")
+        .notEmpty().withMessage("يجب إدخال الموضوع"),
+
+    check("message")
+        .notEmpty().withMessage("يجب إدخال الرسالة"),
+
+    validationMiddiel
+];

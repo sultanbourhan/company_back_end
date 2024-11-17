@@ -1,6 +1,6 @@
 const express = require("express");
 
-const { uploadImages, resizeImg, resizeImglogo, resizeImage,resizeCategoreyimage, create_company, get_company, get_company_my, update_company_my, update_company_id, get_company_id, delete_company_id, delete_company_my, create_company_advertisements_my, delete_company_advertisements_my, get_company_advertisements_my, create_company_comments, delete_company_comments_my, delete_company_comments_admin, create_company_Reviews, create_Categorey, get_Categorey, delete_Categorey, get_Categorey_company, create_Company_requests, get_Company_requests, get_Company_requests_id, delete_Company_requests, get_Company_requests_my, Accept_Company_requests_admin, delete_Company_requests_admin, get_all_company_advertisements, likes_company_advertisements, update_Company_requests , update_Categorey ,get_Categorey_id, get_all_company_advertisements_id} = require("../services/companyServicrs")
+const { uploadImages, resizeImg, resizeImglogo, resizeImage,resizeCategoreyimage, create_company, get_company, get_company_my, update_company_my, update_company_id, get_company_id, delete_company_id, delete_company_my, create_company_advertisements_my, delete_company_advertisements_my, get_company_advertisements_my, create_company_comments, delete_company_comments_my, delete_company_comments_admin, create_company_Reviews, create_Categorey, get_Categorey, delete_Categorey, get_Categorey_company, create_Company_requests, get_Company_requests, get_Company_requests_id, delete_Company_requests, get_Company_requests_my, Accept_Company_requests_admin, delete_Company_requests_admin, get_all_company_advertisements, likes_company_advertisements, update_Company_requests , update_Categorey ,get_Categorey_id, get_all_company_advertisements_id ,delete_company_advertisements_admin} = require("../services/companyServicrs")
 
 const {create_company_V, update_company_my_V, update_company_id_V, get_company_id_V, delete_company_id_V, create_company_advertisements_my_V, delete_company_advertisements_my_V, create_company_comments_V, create_Categorey_V, delete_Categorey_V, get_Categorey_company_V, create_Company_requests_V, get_Company_requests_id_V, delete_Company_requests_V, Accept_Company_requests_admin_V, delete_Company_requests_admin_V, update_Company_requests_V ,update_Categorey_V} = require("../validationResulterror/v_company")
 
@@ -36,6 +36,9 @@ companyroutes.route("/create_company_advertisements_my")
 
 companyroutes.route("/delete_company_advertisements_my/:id")
 .delete(check_login, delete_company_advertisements_my_V, delete_company_advertisements_my)
+
+companyroutes.route("/delete_company_advertisements_admin/:id")
+.delete(check_login,check_user_role("admin"), delete_company_advertisements_admin)
 
 companyroutes.route("/get_company_advertisements_my/:id")
 .get(check_login, get_company_advertisements_my)
